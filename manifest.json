@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Responsive Mobile Studio",
   "short_name": "Mobile Studio",
-  "version": "1.0.0",
-  "description": "Preview websites on multiple phone sizes and inspect real Chrome tabs with mobile device emulation.",
+  "version": "1.1.0",
+  "description": "Inspect multiple real Chrome mobile viewports at once via live screenshots, scrolling, and device emulation.",
   "minimum_chrome_version": "116",
   "permissions": [
     "tabs",

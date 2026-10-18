@@ -184,7 +184,7 @@ async function studioEntry(sender,key) {
   catch (_) { throw new Error("تب پیش‌نمایش بسته شده است؛ سایت را دوباره بارگذاری کنید."); }
   return entry;
 }
-async function studioStart(sender,key,rawUrl,rawDevice) {
+async function studioStart(sender,key,rawUrl,rawDevice,forceReload=false) {
   const owner=studioSenderId(sender);
   const cleanKey=cleanPreviewKey(key);
   const url=sanitizeUrl(rawUrl);
@@ -202,6 +202,7 @@ async function studioStart(sender,key,rawUrl,rawDevice) {
       tabId=entry.tabId;
       await applyDevice(tabId,device);
       if(entry.url!==url) await chrome.tabs.update(tabId,{url});
+      else if(forceReload) await chrome.tabs.reload(tabId);
     }else{
       const tab=await chrome.tabs.create({url,active:false,windowId:sender.tab.windowId});
       tabId=tab.id;
@@ -308,7 +309,7 @@ async function studioRemoveTab(tabId) {
 chrome.runtime.onMessage.addListener((message,sender,sendResponse)=>{
   (async()=>{
     switch(message && message.type){
-      case "PREVIEW_START":return await studioStart(sender,message.key,message.url,message.device);
+      case "PREVIEW_START":return await studioStart(sender,message.key,message.url,message.device,Boolean(message.reload));
       case "PREVIEW_SHOT":return await studioShot(sender,message.key);
       case "PREVIEW_CLICK":return await studioInput(sender,message.key,"CLICK",message);
       case "PREVIEW_SCROLL":return await studioInput(sender,message.key,"SCROLL",message);

@@ -71,11 +71,12 @@ function toggleDevice(id){
   }else{
     const entry={key:id,device:{...getDevice(id)},landscape:false};
     state.selected.push(entry);
-    if(state.url)startEntry(entry,revision);
+    // Wait until its card exists before starting the background tab.
   }
   persist();
   buildLibrary();
   renderBoard();
+  if(index<0 && state.url)startEntry(state.selected[state.selected.length-1],revision);
 }
 function effectiveSize(entry){
   return entry.landscape
