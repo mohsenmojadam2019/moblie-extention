@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Responsive Lab Pro</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <div class="app">
+    <header class="head">
+      <div class="brandmark"><svg width="27" height="27" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect x="5" y="2.5" width="18" height="23" rx="4" stroke="white" stroke-width="2"/><path d="M10 19.5L13 15L16 17L19 11" stroke="#67E8F9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg></div>
+      <div><strong>Responsive Lab <span>PRO</span></strong><small>آزمایشگاه حرفه‌ای ریسپانسیو</small></div>
+      <div class="version">v1.0</div>
+    </header>
+    <div id="notice" class="notice" role="status" aria-live="polite">در حال اتصال به تب فعال...</div>
+    <div class="site-line"><span class="dot" id="status-dot"></span><span id="site" dir="ltr">--</span><span id="status" class="status-pill">غیرفعال</span></div>
+
+    <section class="surface" aria-label="شبیه‌ساز دستگاه">
+      <div class="section-head"><h2>شبیه‌ساز دستگاه</h2><span class="micro">Chrome Device Emulation</span></div>
+      <label class="field-label" for="device">انتخاب دستگاه</label>
+      <select id="device" class="select"></select>
+      <div class="fields-three">
+        <label>عرض (px)<input id="width" type="number" min="240" max="2560" value="390"></label>
+        <label>ارتفاع (px)<input id="height" type="number" min="320" max="2560" value="844"></label>
+        <label>DPR<input id="dpr" type="number" min="0.5" max="5" step="0.125" value="3"></label>
+      </div>
+      <div class="dual" role="group" aria-label="جهت نمایش"><button class="orientation active" data-orientation="portrait">▯ عمودی</button><button class="orientation" data-orientation="landscape">▱ افقی</button></div>
+      <p class="subheading">عرض‌های پرکاربرد</p>
+      <div id="quick" class="quick-widths"></div>
+      <div class="row-buttons"><button id="apply" class="btn primary">▶ فعال‌سازی / اعمال</button><button id="disable" class="btn subtle">بازگشت به دسکتاپ</button></div>
+      <p class="footnote">نمایش واقعی viewport و touch در تب فعال؛ رندر iOS در Chrome همچنان موتور Safari نیست.</p>
+    </section>
+
+    <nav class="tabs" aria-label="ابزارها"><button data-tab="inspect" class="selected"> <span>⌖</span> اینسپکت CSS</button><button data-tab="audit"> <span>⚑</span> باگ‌یابی</button><button data-tab="export"> <span>⇩</span> خروجی</button></nav>
+
+    <section class="tabpage" data-page="inspect">
+      <section class="surface">
+        <div class="section-head"><h2>انتخاب المان</h2><span class="micro">Live Editor</span></div>
+        <button id="pick" class="btn accent full">⌖ انتخاب المان روی صفحه</button>
+        <div id="selection" class="selection">هنوز المانی انتخاب نشده است. دکمه بالا را بزنید و یک بخش از سایت را انتخاب کنید.</div>
+        <div id="computed" class="computed"></div>
+        <p class="subheading">تغییر سریع استایل</p>
+        <div class="two-cols">
+          <label>Display<input data-css="display" placeholder="flex"></label>
+          <label>Width<input data-css="width" placeholder="100%"></label>
+          <label>Max width<input data-css="max-width" placeholder="none"></label>
+          <label>Flex direction<input data-css="flex-direction" placeholder="column"></label>
+          <label>Grid columns<input data-css="grid-template-columns" placeholder="1fr"></label>
+          <label>Font size<input data-css="font-size" placeholder="14px"></label>
+          <label>Padding<input data-css="padding" placeholder="12px"></label>
+          <label>Margin<input data-css="margin" placeholder="0"></label>
+          <label>Gap<input data-css="gap" placeholder="8px"></label>
+          <label>Overflow X<input data-css="overflow-x" placeholder="hidden"></label>
+        </div>
+        <label class="field-label" for="css-text">CSS سفارشی (هر ویژگی در یک خط)</label>
+        <textarea id="css-text" rows="4" spellcheck="false" dir="ltr" placeholder="font-size: 14px;\nmax-width: 100%;"></textarea>
+        <div class="row-buttons"><button id="apply-css" class="btn primary">اعمال تغییرات</button><button id="undo" class="btn subtle">↶ بازگشت</button></div>
+        <div class="row-buttons"><button id="save-css" class="btn outline">ذخیره دائمی برای سایت</button><button id="reset-css" class="btn danger">پاک‌کردن تغییرات زنده</button></div>
+        <p class="footnote">ذخیره برای این دامنه است؛ کد سایت روی سرور تغییر نمی‌کند.</p>
+      </section>
+    </section>
+
+    <section class="tabpage hidden" data-page="audit">
+      <section class="surface">
+        <div class="section-head"><h2>بررسی ریسپانسیو</h2><span class="micro">Read-only audit</span></div>
+        <p class="description">عرض اضافی صفحه، المان‌های بیرون‌زده، اهداف لمسی کوچک و متن‌های بریده را بررسی می‌کند.</p>
+        <button id="audit" class="btn primary full">⚑ بررسی عرض فعلی</button>
+        <p class="subheading">تست خودکار تمام عرض‌ها</p>
+        <button id="sweep" class="btn accent full">⇄ اسکن ۸ عرض متداول</button>
+        <div id="progress" class="progress hidden" role="status"></div>
+        <div id="audit-results" class="audit-results"><div class="empty">نتایج اسکن در این بخش نمایش داده می‌شود.</div></div>
+      </section>
+    </section>
+
+    <section class="tabpage hidden" data-page="export">
+      <section class="surface">
+        <div class="section-head"><h2>گزارش و خروجی</h2><span class="micro">Local only</span></div>
+        <p class="description">گزارش‌ها و استایل‌های ذخیره‌شده فقط در مرورگر شما می‌مانند مگر اینکه خودتان خروجی بگیرید.</p>
+        <button id="screenshot" class="btn primary full">▣ ذخیره اسکرین‌شات PNG</button>
+        <button id="export-json" class="btn outline full margin-top">⇩ دانلود گزارش JSON</button>
+        <button id="export-css" class="btn outline full margin-top">{ } دانلود CSS ذخیره‌شده</button>
+        <button id="copy-selector" class="btn subtle full margin-top">⌕ کپی سلکتور انتخاب‌شده</button>
+        <div class="privacy">🔒 بدون سرور، بدون تله‌متری، بدون تغییر فایل‌های سایت.</div>
+      </section>
+    </section>
+    <footer>RESPONSIVE LAB • BUILT FOR FRONT-END QA</footer>
+  </div>
+  <script src="devices.js"></script>
+  <script src="panel.js"></script>
+</body>
+</html>
