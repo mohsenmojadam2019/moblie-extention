@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Responsive Lab Pro | آزمایشگاه ریسپانسیو",
+  "short_name": "Responsive Lab",
+  "description": "Professional mobile/tablet viewport emulation, live CSS inspector and responsive audit for Chrome.",
+  "version": "1.0.0",
+  "minimum_chrome_version": "116",
+  "permissions": ["debugger", "sidePanel", "tabs", "scripting", "storage", "downloads", "activeTab"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": {"service_worker": "background.js"},
+  "action": {"default_title": "Responsive Lab Pro"},
+  "side_panel": {"default_path": "panel.html"},
+  "content_scripts": [{
+    "matches": ["http://*/*", "https://*/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle",
+    "all_frames": false
+  }],
+  "icons": {"16":"icons/icon16.png","48":"icons/icon48.png","128":"icons/icon128.png"}
+}
