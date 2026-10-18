@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mobile Studio</title>
+  <style>
+    :root{font-family:Vazirmatn,Tahoma,Arial,sans-serif;color:#182b3c}
+    *{box-sizing:border-box}
+    body{width:370px;margin:0;background:#f3f6f9}
+    button,input,select{font:inherit}
+    header{background:#102b43;color:#fff;padding:22px}
+    .identity{display:flex;align-items:center;gap:12px}
+    .mark{display:grid;place-items:center;width:42px;height:42px;border-radius:14px;background:#baf4dc;color:#103b39;font-size:24px}
+    h1{font-size:17px;margin:0 0 2px}.subtitle{font-size:11px;color:#b2c5d2}
+    main{padding:18px}
+    label{font-size:12px;font-weight:700;display:block;margin-bottom:8px}
+    input,select{width:100%;border:1px solid #d7e0e7;background:#fff;padding:12px;border-radius:11px;outline:none;color:#15283a;direction:ltr;text-align:left}
+    input:focus,select:focus{border-color:#26a97b;box-shadow:0 0 0 3px #26a97b22}
+    select{margin-bottom:14px;direction:rtl;text-align:right}
+    .field{margin-bottom:14px}
+    button{border:none;border-radius:11px;padding:12px 14px;cursor:pointer;font-weight:700}
+    button:disabled{opacity:.6;cursor:progress}
+    .primary{width:100%;background:#0b8567;color:#fff;box-shadow:0 6px 14px #0b856722}
+    .secondary{width:100%;color:#18364b;background:white;border:1px solid #dce5eb;margin-top:9px}
+    .tools{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+    .tools button{background:#e5edf2;font-size:11px;color:#243e51;padding:10px 5px}
+    .notice{font-size:11px;line-height:1.9;color:#627486;background:#e8eff4;border-radius:11px;padding:10px 12px;margin-top:15px}
+    .result{font-size:11px;white-space:pre-wrap;line-height:1.85;margin:12px 0 0;color:#18364b}
+    .result.error{color:#bb4350}
+  </style>
+</head>
+<body>
+<header>
+  <div class="identity"><div class="mark">▣</div><div><h1>Responsive Mobile Studio</h1><div class="subtitle">تست و طراحی ریسپانسیو در مرورگر</div></div></div>
+</header>
+<main>
+  <div class="field"><label for="url">آدرس وب‌سایت</label><input id="url" type="url" spellcheck="false" placeholder="https://example.com"></div>
+  <label for="device">مدل دستگاه</label>
+  <select id="device"></select>
+  <button class="primary" id="apply">شبیه‌سازی روی تب فعلی</button>
+  <button class="secondary" id="open">بازکردن در تب موبایل جدید</button>
+  <button class="secondary" id="studio">نمایش چند گوشی کنار هم ↗</button>
+  <div class="tools">
+    <button id="rotate">↻ چرخش نمایشگر</button>
+    <button id="shot">◉ ذخیره اسکرین‌شات</button>
+    <button id="audit">⌕ بررسی بیرون‌زدگی</button>
+    <button id="clear">× پایان شبیه‌سازی</button>
+  </div>
+  <div id="result" class="result" role="status" aria-live="polite"></div>
+  <div class="notice">شبیه‌سازی دقیق از ابزار Debugger کروم استفاده می‌کند. ممکن است کروم هشدار «در حال اشکال‌زدایی» نمایش دهد. در این حالت DevTools را هم‌زمان باز نکنید.</div>
+</main>
+<script src="devices.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>
