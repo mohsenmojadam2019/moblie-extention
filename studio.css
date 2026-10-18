@@ -98,3 +98,14 @@ h1{font-size:clamp(22px,2.35vw,30px);margin:0;font-weight:900;letter-spacing:-.4
 #toast.visible{opacity:1;transform:translateY(0)}#toast.error{background:#a03748}
 @media(max-width:1000px){.sidebar{width:225px}.main{padding:20px}.device-card{max-width:calc(100vw - 290px)}.top-badge{display:none}}
 @media(max-width:740px){.app{display:block}.sidebar{height:auto;width:100%;position:static;padding:14px}.brand{margin-bottom:10px}.sidebar-topline,.sidebar-bottom,.side-heading{display:none}.device-list{flex-direction:row;overflow-x:auto}.device-group{display:none}.device-row{flex:none;width:160px;border:1px solid #edf0f2}.custom-box{margin-top:14px}.main{padding:16px}.main-heading{margin-bottom:18px}.toolbar{padding:12px}.site-form button{padding:11px}.device-card{max-width:calc(100vw - 76px)}.workspace-heading{padding:0 15px 15px}.board{padding:6px 15px 22px}.workspace-key{display:none}.board-bottom{padding:12px 15px}.footbar{flex-wrap:wrap}}
+
+/* Independent page navigation for each virtual device. */
+.scroll-toolbar{display:flex;gap:8px;align-items:center;padding:11px 13px;background:#fff;border-top:1px solid #e4edf0;direction:rtl}
+.scroll-toolbar button{flex:none;background:#e9f7f2;color:#0b785c;border:1px solid #acdcca;border-radius:8px;font-size:11px;font-weight:800;padding:8px 9px;white-space:nowrap}
+.scroll-toolbar button:hover{background:#cceee1}
+.scroll-toolbar button:active{transform:translateY(1px)}
+.scroll-range{flex:1;min-width:35px;max-width:100%;accent-color:#118d71;cursor:pointer;direction:ltr}
+.scroll-percent{flex:none;font:11px Arial,sans-serif;color:#2f7565;text-align:center;min-width:28px;direction:ltr}
+.scroll-pos{font-family:VazirLocal,Tahoma,Arial,sans-serif!important;direction:rtl;white-space:nowrap}
+.viewport-surface{touch-action:none;cursor:grab}
+.viewport-surface:active{cursor:grabbing}
