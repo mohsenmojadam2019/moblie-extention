@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Responsive Mobile Studio — Workbench</title>
+  <link rel="stylesheet" href="studio.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-symbol"><span></span></div>
+      <div><div class="brand-name">MOBILE <b>STUDIO</b></div><div class="brand-sub">Responsive workspace</div></div>
+    </div>
+    <div class="sidebar-topline"></div>
+    <div class="side-heading"><span>دستگاه‌های آماده</span><span class="caption-en">DEVICE LIBRARY</span></div>
+    <div id="device-list" class="device-list"></div>
+    <div class="custom-box">
+      <div class="custom-heading">ابعاد دلخواه <span class="plus-sign">+</span></div>
+      <div class="custom-form">
+        <label>عرض (px)<input type="number" id="custom-width" min="240" max="2000" value="390"></label>
+        <label>ارتفاع (px)<input type="number" id="custom-height" min="320" max="2200" value="844"></label>
+      </div>
+      <button id="add-custom" class="custom-add">افزودن نمایشگر سفارشی <span>←</span></button>
+    </div>
+    <div class="sidebar-bottom">
+      <div class="side-hint">نکته: امکان مشاهده بعضی وب‌سایت‌ها در iframe مسدود است. برای نمایش مطمئن، از دکمه «تب واقعی» استفاده کنید.</div>
+      <div class="version">MOBILE STUDIO <span>v1.0.0</span></div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="main-heading">
+      <div><div class="eyebrow"><span class="green-dot"></span> WORKSPACE / RESPONSIVE LAB</div><h1>آزمایشگاه نمایش موبایل</h1><p>ظاهر سایتتان را در اندازه‌های مختلف، هم‌زمان بررسی کنید.</p></div>
+      <div class="top-badge"><div class="badge-icon">◎</div><div><b>Multi Device</b><small>Live preview mode</small></div></div>
+    </div>
+    <div class="toolbar">
+      <form class="site-form" id="site-form">
+        <div class="url-icon">⌁</div>
+        <input id="site-url" type="text" dir="ltr" spellcheck="false" autocomplete="url" placeholder="https://yourwebsite.com" aria-label="آدرس سایت">
+        <button type="submit" id="load-url">نمایش سایت <span>←</span></button>
+      </form>
+      <div class="toolbar-bottom">
+        <div class="toolbar-left">
+          <span class="live-dot"></span><span id="site-status">آماده برای شروع</span>
+          <span class="divider-vertical"></span>
+          <span><b id="count">۳</b> نمایشگر انتخاب‌شده</span>
+        </div>
+        <div class="toolbar-actions">
+          <label for="scale">مقیاس نمایش</label>
+          <select id="scale" aria-label="مقیاس نمایش">
+            <option value="0.5">50%</option>
+            <option value="0.6">60%</option>
+            <option value="0.7" selected>70%</option>
+            <option value="0.8">80%</option>
+            <option value="0.9">90%</option>
+            <option value="1">100%</option>
+          </select>
+          <button class="outline-btn" id="reload-all" title="بازخوانی همه نمایشگرها">↻ نوسازی همه</button>
+        </div>
+      </div>
+    </div>
+    <section class="workspace">
+      <div class="workspace-heading">
+        <div><h2>پیش‌نمایش هم‌زمان</h2><p>اسکرول هر نمایشگر مستقل است؛ مدل‌ها را از ستون کناری تغییر دهید.</p></div>
+        <div class="workspace-key"><span class="key-square"></span> CSS viewport</div>
+      </div>
+      <div class="board" id="board" aria-label="پیش‌نمایش دستگاه‌ها"></div>
+      <div class="board-bottom">
+        <div class="tip-icon">i</div>
+        <div>اگر پیش‌نمایش سفید یا مسدود بود، وب‌سایت نمایش داخل iframe را ممنوع کرده است. روی <b>«تب واقعی»</b> در کارت دستگاه کلیک کنید؛ نمایش در Chrome واقعی با ابعاد موبایل انجام می‌شود.</div>
+      </div>
+    </section>
+    <div class="footbar"><span>طراحی و تست ریسپانسیو بدون تغییر کد سایت</span><span>Chrome Extension · Manifest V3</span></div>
+  </main>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="devices.js"></script>
+<script src="studio.js"></script>
+</body>
+</html>
