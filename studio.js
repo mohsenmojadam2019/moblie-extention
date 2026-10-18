@@ -115,11 +115,76 @@ async function interact(entry,message){
     }
   }catch(error){toast(error.message,true);}
 }
+
+function updateScrollControls(entry,info){
+  const card=cards.get(entry.key);
+  if(!card || !info)return;
+  const percent=Math.min(100,Math.max(0,Math.round(Number(info.percent)||0)));
+  if(info.kind==="document" || info.kind==="nested"){
+    const slider=card.querySelector(".scroll-range");
+    if(document.activeElement!==slider)slider.value=String(percent);
+    card.querySelector(".scroll-percent").textContent=percent+"%";
+    card.querySelector(".scroll-pos").textContent=info.max>0
+      ?("موقعیت "+Math.round(info.top)+" از "+Math.round(info.max)+"px"):"ابتدای صفحه";
+  }
+}
+function normalizedWheelDelta(event,entry){
+  const height=effectiveSize(entry).height;
+  const factor=event.deltaMode===1?42:event.deltaMode===2?height:1;
+  return {dx:Math.round(event.deltaX*factor / state.scale),
+    dy:Math.round(event.deltaY*factor / state.scale)};
+}
+function enqueueScroll(entry,dx,dy,coords){
+  if(!state.url)return;
+  entry.queuedDx=(entry.queuedDx||0)+dx;
+  entry.queuedDy=(entry.queuedDy||0)+dy;
+  entry.lastPointer=coords||entry.lastPointer;
+  if(entry.scrollWorker)return;
+  entry.scrollWorker=(async()=>{
+    try {
+      while(Math.abs(entry.queuedDx)>0.5||Math.abs(entry.queuedDy)>0.5){
+        const nextDx=Math.max(-1300,Math.min(1300,Math.round(entry.queuedDx)));
+        const nextDy=Math.max(-1800,Math.min(1800,Math.round(entry.queuedDy)));
+        entry.queuedDx-=nextDx;
+        entry.queuedDy-=nextDy;
+        const {x,y}=entry.lastPointer||{x:effectiveSize(entry).width/2,y:effectiveSize(entry).height/2};
+        const result=await send({type:"PREVIEW_SCROLL",key:entry.key,x,y,dx:nextDx,dy:nextDy});
+        updateScrollControls(entry,result.scroll);
+        // Allow layout, lazy-loaded sections and fixed headers to settle.
+        await sleep(180);
+        await captureEntry(entry);
+      }
+    }catch(error){toast("خطای پیمایش "+entry.device.name+": "+error.message,true);}
+    finally{
+      entry.scrollWorker=null;
+      if(Math.abs(entry.queuedDy)>0.5||Math.abs(entry.queuedDx)>0.5)
+        enqueueScroll(entry,0,0,entry.lastPointer);
+    }
+  })();
+}
+async function jumpScroll(entry,action,percent){
+  if(!state.url){toast("ابتدا آدرس وب‌سایت را وارد کنید.",true);return;}
+  try{
+    entry.queuedDy=0;entry.queuedDx=0;
+    if(entry.scrollWorker)await entry.scrollWorker;
+    const response=await send({type:"PREVIEW_SCROLL_TO",key:entry.key,action,percent});
+    updateScrollControls(entry,response.scroll);
+    await sleep(200);
+    await captureEntry(entry);
+  }catch(error){toast("خطای جابه‌جایی "+entry.device.name+": "+error.message,true);}
+}
+async function updatePosition(entry){
+  try{
+    const response=await send({type:"PREVIEW_SCROLL_STATUS",key:entry.key});
+    updateScrollControls(entry,response.scroll);
+  }catch(_){}
+}
+
 function createCard(entry){
   const card=document.createElement("article");
   card.className="device-card";
   card.dataset.key=entry.key;
-  card.innerHTML='<div class="card-top"><div class="card-meta"><div class="card-label"><span class="mini-icon">▯</span><div><div class="card-name"></div><div class="card-dim"></div></div></div><button class="close-card" data-act="remove" title="حذف دستگاه" aria-label="حذف دستگاه">×</button></div><div class="card-actions"><button data-act="rotate" title="چرخش صفحه">↻ چرخش</button><button data-act="reload" title="بازخوانی سایت">⟳ تازه‌سازی</button><button class="real-tab" data-act="open" title="انتقال به تب واقعی Chrome">↗ تب واقعی</button></div></div><div class="viewport-holder"><div class="viewport-canvas"><div class="viewport-surface" tabindex="0" role="application" aria-label="پیش‌نمایش قابل کلیک و اسکرول"><img class="capture-img" alt="تصویر سایت در مرورگر دستگاه" draggable="false"><div class="capture-status">در انتظار بارگذاری سایت</div></div></div></div><div class="card-foot"><span>REAL CHROME VIEW</span><span class="card-live">LIVE</span></div>';
+  card.innerHTML='<div class="card-top"><div class="card-meta"><div class="card-label"><span class="mini-icon">▯</span><div><div class="card-name"></div><div class="card-dim"></div></div></div><button class="close-card" data-act="remove" title="حذف دستگاه" aria-label="حذف دستگاه">×</button></div><div class="card-actions"><button data-act="rotate" title="چرخش صفحه">↻ چرخش</button><button data-act="reload" title="بازخوانی سایت">⟳ تازه‌سازی</button><button class="real-tab" data-act="open" title="انتقال به تب واقعی Chrome">↗ تب واقعی</button></div></div><div class="viewport-holder"><div class="viewport-canvas"><div class="viewport-surface" tabindex="0" role="application" aria-label="پیش‌نمایش قابل کلیک و اسکرول"><img class="capture-img" alt="تصویر سایت در مرورگر دستگاه" draggable="false"><div class="capture-status">در انتظار بارگذاری سایت</div></div></div></div><div class="scroll-toolbar"><button type="button" data-scroll="top" title="ابتدای سایت">↑ بالا</button><input class="scroll-range" type="range" min="0" max="100" value="0" step="1" aria-label="موقعیت عمودی صفحه"><button type="button" data-scroll="bottom" title="انتهای سایت">↓ پایین</button><span class="scroll-percent">0%</span></div><div class="card-foot"><span class="scroll-pos">موقعیت صفحه</span><span class="card-live">LIVE</span></div>';
   card.querySelector(".card-name").textContent=entry.device.name;
   const surface=card.querySelector(".viewport-surface");
   card.querySelectorAll("[data-act]").forEach(button=>{
@@ -135,22 +200,42 @@ function createCard(entry){
       if(action==="open")openRealTab(entry,button);
     });
   });
+  for(const button of card.querySelectorAll("[data-scroll]")){
+    button.addEventListener("click",()=>jumpScroll(entry,button.dataset.scroll,0));
+  }
+  const slider=card.querySelector(".scroll-range");
+  slider.addEventListener("change",()=>jumpScroll(entry,"percent",Number(slider.value)));
+  let pointerStart=null;
+  surface.addEventListener("pointerdown",event=>{
+    if(event.button!==0 || !state.url)return;
+    pointerStart={id:event.pointerId,x:event.clientX,y:event.clientY};
+    surface.setPointerCapture(event.pointerId);
+  });
+  surface.addEventListener("pointerup",event=>{
+    if(!pointerStart || pointerStart.id!==event.pointerId)return;
+    const deltaY=pointerStart.y-event.clientY;
+    const deltaX=pointerStart.x-event.clientX;
+    if(Math.abs(deltaY)>10 || Math.abs(deltaX)>10){
+      entry.suppressClick=true;
+      enqueueScroll(entry,
+        Math.round(deltaX / state.scale),Math.round(deltaY / state.scale),
+        pointerPosition(event,entry,surface));
+    }
+    pointerStart=null;
+  });
+  surface.addEventListener("pointercancel",()=>{pointerStart=null;});
   surface.addEventListener("click",event=>{
     if(!state.url)return;
+    if(entry.suppressClick){entry.suppressClick=false;return;}
     surface.focus({preventScroll:true});
     interact(entry,{type:"PREVIEW_CLICK",...pointerPosition(event,entry,surface)});
   });
   surface.addEventListener("wheel",event=>{
     if(!state.url)return;
     event.preventDefault();
-    const {x,y}=pointerPosition(event,entry,surface);
-    if(entry.scrollPending)return;
-    entry.scrollPending=true;
-    interact(entry,{
-      type:"PREVIEW_SCROLL",x,y,
-      dx:Math.round(event.deltaX / state.scale),
-      dy:Math.round(event.deltaY / state.scale)
-    }).finally(()=>{entry.scrollPending=false;});
+    const coords=pointerPosition(event,entry,surface);
+    const delta=normalizedWheelDelta(event,entry);
+    enqueueScroll(entry,delta.dx,delta.dy,coords);
   },{passive:false});
   surface.addEventListener("keydown",event=>{
     if(!state.url || event.ctrlKey || event.metaKey || event.altKey)return;
@@ -192,7 +277,8 @@ function updateCard(card,entry){
 }
 async function captureEntry(entry){
   const card=cards.get(entry.key);
-  if(!card || !state.url || entry.capturing)return;
+  if(!card || !state.url)return;
+  if(entry.capturing){entry.needsCapture=true;return;}
   entry.capturing=true;
   try{
     const result=await send({type:"PREVIEW_SHOT",key:entry.key});
@@ -207,7 +293,13 @@ async function captureEntry(entry){
       setStatus(card,"خطا در تصویر: "+error.message,true);
     }
     card.querySelector(".card-live").textContent="⚠ RETRY";
-  }finally{entry.capturing=false;}
+  }finally{
+    entry.capturing=false;
+    if(entry.needsCapture){
+      entry.needsCapture=false;
+      captureEntry(entry).catch(()=>{});
+    }
+  }
 }
 async function startEntry(entry,version,reload=false){
   const card=cards.get(entry.key);
@@ -223,6 +315,7 @@ async function startEntry(entry,version,reload=false){
     if(version!==revision || !state.selected.includes(entry))return;
     await sleep(750);
     await captureEntry(entry);
+    await updatePosition(entry);
   }catch(error){
     if(version===revision && state.selected.includes(entry))setStatus(card,"خطا: "+error.message,true);
   }finally{entry.starting=false;}
@@ -274,7 +367,7 @@ async function loadUrl(){
     }
     const tasks=state.selected.map(entry=>startEntry(entry,version,changed));
     await Promise.allSettled(tasks);
-    toast("نمایشگرها آماده‌اند. برای پیمایش داخل هر تصویر، از اسکرول و کلیک استفاده کنید.");
+    toast("اسکرول موس، کشیدن تصویر و کنترل‌های بالا/پایین برای هر گوشی جداگانه فعال هستند.");
   }catch(error){toast(error.message||String(error),true);}
 }
 document.addEventListener("DOMContentLoaded",async()=>{
