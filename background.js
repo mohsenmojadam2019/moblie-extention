@@ -228,6 +228,89 @@ async function studioShot(sender,key) {
   if(!result || !result.data) throw new Error("تصویر از تب Chrome دریافت نشد.");
   return {ok:true,src:"data:image/jpeg;base64,"+result.data};
 }
+
+/**
+ * Scrolls the real website's DOM through CDP Runtime.evaluate.
+ * Input.dispatchMouseEvent(mouseWheel) alone is unreliable for background tabs:
+ * Chrome may throttle/ignore input sent to an occluded renderer.
+ */
+function scrollPreviewDocument(config) {
+  const number = (v,fallback=0) => Number.isFinite(Number(v)) ? Number(v) : fallback;
+  const root = document.scrollingElement || document.documentElement;
+  const rootMax = () => Math.max(0,root.scrollHeight-root.clientHeight);
+  const position = (node) => ({
+    top:Math.round(node.scrollTop || 0),
+    max:Math.max(0,Math.round(node.scrollHeight-node.clientHeight))
+  });
+  const snapshot = (node,kind,changed) => {
+    const pos=position(node);
+    return {top:pos.top,max:pos.max,percent:pos.max?Math.round(100*pos.top/pos.max):0,kind,changed};
+  };
+  const action = String(config.action || "scroll");
+  if(action==="status")return snapshot(root,"document",false);
+  if(action==="top" || action==="bottom" || action==="percent") {
+    const before=root.scrollTop;
+    const target=action==="top"?0:action==="bottom"?rootMax():
+      rootMax()*Math.max(0,Math.min(100,number(config.percent)))/100;
+    root.scrollTop=Math.round(target);
+    // A scrollable <body> sometimes differs from documentElement.
+    if(Math.abs(root.scrollTop-target)>3)window.scrollTo(0,target);
+    return snapshot(root,"document",Math.abs(root.scrollTop-before)>0.5);
+  }
+  const dy=Math.max(-2400,Math.min(2400,number(config.dy)));
+  const dx=Math.max(-1400,Math.min(1400,number(config.dx)));
+  const x=Math.max(0,Math.min(innerWidth-1,number(config.x,innerWidth/2)));
+  const y=Math.max(0,Math.min(innerHeight-1,number(config.y,innerHeight/2)));
+  let node=document.elementFromPoint(x,y);
+  // Prefer the actual independently scrollable list below the cursor.
+  while(node && node!==document.documentElement) {
+    const style=getComputedStyle(node);
+    const scrollY = /(auto|scroll|overlay)/.test(style.overflowY);
+    const scrollX = /(auto|scroll|overlay)/.test(style.overflowX);
+    const maxY=Math.max(0,node.scrollHeight-node.clientHeight);
+    const maxX=Math.max(0,node.scrollWidth-node.clientWidth);
+    const canY=scrollY && maxY>1 && (dy<0 ? node.scrollTop>1 : node.scrollTop<maxY-1);
+    const canX=scrollX && maxX>1;
+    if((dy && canY)||(dx && canX)) {
+      const beforeY=node.scrollTop;
+      const beforeX=node.scrollLeft;
+      if(dy) node.scrollTop+=dy;
+      if(dx) node.scrollLeft+=dx;
+      const changed=Math.abs(node.scrollTop-beforeY)>0.5 || Math.abs(node.scrollLeft-beforeX)>0.5;
+      return snapshot(node,"nested",changed);
+    }
+    node=node.parentElement;
+  }
+  const beforeY=root.scrollTop;
+  const beforeX=root.scrollLeft;
+  root.scrollTop +=dy;
+  root.scrollLeft+=dx;
+  if(Math.abs(root.scrollTop-beforeY)<1 && dy)window.scrollBy(0,dy);
+  return snapshot(root,"document",Math.abs(root.scrollTop-beforeY)>0.5 || Math.abs(root.scrollLeft-beforeX)>0.5);
+}
+async function studioScroll(sender,key,action,data) {
+  const entry=await studioEntry(sender,key);
+  const device=entry.device;
+  const width=device.landscape?device.height:device.width;
+  const height=device.landscape?device.width:device.height;
+  const params={
+    action,
+    x:Math.max(0,Math.min(width-1,Number(data.x)||width/2)),
+    y:Math.max(0,Math.min(height-1,Number(data.y)||height/2)),
+    dx:Math.max(-1400,Math.min(1400,Number(data.dx)||0)),
+    dy:Math.max(-2400,Math.min(2400,Number(data.dy)||0)),
+    percent:Math.max(0,Math.min(100,Number(data.percent)||0))
+  };
+  const result=await chrome.debugger.sendCommand(
+    {tabId:entry.tabId},"Runtime.evaluate",
+    {expression:"("+scrollPreviewDocument.toString()+")("+JSON.stringify(params)+")",
+     returnByValue:true,awaitPromise:false}
+  );
+  if(result.exceptionDetails || !result.result || !result.result.value)
+    throw new Error("اسکرول تب پس‌زمینه انجام نشد؛ لطفاً «تب واقعی» را امتحان کنید.");
+  return {ok:true,scroll:result.result.value};
+}
+
 async function studioInput(sender,key,kind,data) {
   const entry=await studioEntry(sender,key);
   const device=entry.device;
@@ -240,11 +323,6 @@ async function studioInput(sender,key,kind,data) {
     await chrome.debugger.sendCommand(target,"Input.dispatchMouseEvent",{type:"mouseMoved",x,y});
     await chrome.debugger.sendCommand(target,"Input.dispatchMouseEvent",{type:"mousePressed",x,y,button:"left",clickCount:1});
     await chrome.debugger.sendCommand(target,"Input.dispatchMouseEvent",{type:"mouseReleased",x,y,button:"left",clickCount:1});
-  }else if(kind==="SCROLL"){
-    await chrome.debugger.sendCommand(target,"Input.dispatchMouseEvent",{
-      type:"mouseWheel",x,y,deltaX:Math.max(-1200,Math.min(1200,Number(data.dx)||0)),
-      deltaY:Math.max(-1200,Math.min(1200,Number(data.dy)||0))
-    });
   }else if(kind==="TEXT"){
     const content=String(data.text||"");
     if(content.length>10) throw new Error("ورودی بیش‌ازحد طولانی است.");
@@ -312,7 +390,9 @@ chrome.runtime.onMessage.addListener((message,sender,sendResponse)=>{
       case "PREVIEW_START":return await studioStart(sender,message.key,message.url,message.device,Boolean(message.reload));
       case "PREVIEW_SHOT":return await studioShot(sender,message.key);
       case "PREVIEW_CLICK":return await studioInput(sender,message.key,"CLICK",message);
-      case "PREVIEW_SCROLL":return await studioInput(sender,message.key,"SCROLL",message);
+      case "PREVIEW_SCROLL":return await studioScroll(sender,message.key,"scroll",message);
+      case "PREVIEW_SCROLL_TO":return await studioScroll(sender,message.key,message.action,message);
+      case "PREVIEW_SCROLL_STATUS":return await studioScroll(sender,message.key,"status",message);
       case "PREVIEW_TEXT":return await studioInput(sender,message.key,"TEXT",message);
       case "PREVIEW_KEY":return await studioInput(sender,message.key,"KEY",message);
       case "PREVIEW_FOCUS":return await studioFocus(sender,message.key);
