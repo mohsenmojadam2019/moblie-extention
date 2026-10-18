@@ -142,9 +142,180 @@ async function audit(tabId) {
   if (result.exceptionDetails) throw new Error("بررسی صفحه ناموفق بود.");
   return {ok:true,report:result.result.value};
 }
+
+/* The Studio uses real browser tabs and Chrome DevTools screenshots.
+ * This works for websites that prohibit being embedded in an iframe.
+ * Preview tabs belong to their Studio tab and are closed with it.
+ */
+const STUDIO_TABS_KEY = "studioPreviewTabs";
+let studioLock = Promise.resolve();
+
+function studioExclusive(callback) {
+  const next = studioLock.catch(() => {}).then(callback);
+  studioLock = next.catch(() => {});
+  return next;
+}
+async function getStudioTabs() {
+  const result = await chrome.storage.session.get(STUDIO_TABS_KEY);
+  return result[STUDIO_TABS_KEY] || {};
+}
+async function setStudioTabs(tabs) {
+  await chrome.storage.session.set({[STUDIO_TABS_KEY]:tabs});
+}
+function studioSenderId(sender) {
+  const url = String(sender && sender.url || "");
+  if (!sender || !sender.tab || !Number.isInteger(sender.tab.id) ||
+      !url.startsWith(chrome.runtime.getURL("studio.html"))) {
+    throw new Error("درخواست پیش‌نمایش فقط از صفحه Studio پذیرفته می‌شود.");
+  }
+  return sender.tab.id;
+}
+function cleanPreviewKey(raw) {
+  const key = String(raw || "");
+  if (!/^[a-zA-Z0-9_-]{1,80}$/.test(key)) throw new Error("شناسه دستگاه نامعتبر است.");
+  return key;
+}
+async function studioEntry(sender,key) {
+  const owner=studioSenderId(sender);
+  const tabs=await getStudioTabs();
+  const entry=tabs[String(owner)] && tabs[String(owner)][cleanPreviewKey(key)];
+  if (!entry || !Number.isInteger(entry.tabId)) throw new Error("این پیش‌نمایش هنوز فعال نیست.");
+  try { await chrome.tabs.get(entry.tabId); }
+  catch (_) { throw new Error("تب پیش‌نمایش بسته شده است؛ سایت را دوباره بارگذاری کنید."); }
+  return entry;
+}
+async function studioStart(sender,key,rawUrl,rawDevice) {
+  const owner=studioSenderId(sender);
+  const cleanKey=cleanPreviewKey(key);
+  const url=sanitizeUrl(rawUrl);
+  const device=sanitizeDevice(rawDevice);
+  return studioExclusive(async()=>{
+    const tabs=await getStudioTabs();
+    const own=tabs[String(owner)] || {};
+    let entry=own[cleanKey];
+    if(entry){
+      try {await chrome.tabs.get(entry.tabId);}
+      catch (_) {entry=null;}
+    }
+    let tabId;
+    if(entry){
+      tabId=entry.tabId;
+      await applyDevice(tabId,device);
+      if(entry.url!==url) await chrome.tabs.update(tabId,{url});
+    }else{
+      const tab=await chrome.tabs.create({url,active:false,windowId:sender.tab.windowId});
+      tabId=tab.id;
+      try {
+        await applyDevice(tabId,device);
+        await chrome.debugger.sendCommand({tabId},"Page.enable");
+      }catch(error){
+        try {await chrome.tabs.remove(tabId);}catch(_){}
+        throw error;
+      }
+    }
+    own[cleanKey]={tabId,url,device};
+    tabs[String(owner)]=own;
+    await setStudioTabs(tabs);
+    return {ok:true,tabId};
+  });
+}
+async function studioShot(sender,key) {
+  const entry=await studioEntry(sender,key);
+  const result=await chrome.debugger.sendCommand({tabId:entry.tabId},"Page.captureScreenshot",{
+    format:"jpeg",quality:65,fromSurface:true,captureBeyondViewport:false
+  });
+  if(!result || !result.data) throw new Error("تصویر از تب Chrome دریافت نشد.");
+  return {ok:true,src:"data:image/jpeg;base64,"+result.data};
+}
+async function studioInput(sender,key,kind,data) {
+  const entry=await studioEntry(sender,key);
+  const device=entry.device;
+  const width=device.landscape?device.height:device.width;
+  const height=device.landscape?device.width:device.height;
+  const x=Math.max(0,Math.min(width-1,Number(data.x)||0));
+  const y=Math.max(0,Math.min(height-1,Number(data.y)||0));
+  const target={tabId:entry.tabId};
+  if(kind==="CLICK"){
+    await chrome.debugger.sendCommand(target,"Input.dispatchMouseEvent",{type:"mouseMoved",x,y});
+    await chrome.debugger.sendCommand(target,"Input.dispatchMouseEvent",{type:"mousePressed",x,y,button:"left",clickCount:1});
+    await chrome.debugger.sendCommand(target,"Input.dispatchMouseEvent",{type:"mouseReleased",x,y,button:"left",clickCount:1});
+  }else if(kind==="SCROLL"){
+    await chrome.debugger.sendCommand(target,"Input.dispatchMouseEvent",{
+      type:"mouseWheel",x,y,deltaX:Math.max(-1200,Math.min(1200,Number(data.dx)||0)),
+      deltaY:Math.max(-1200,Math.min(1200,Number(data.dy)||0))
+    });
+  }else if(kind==="TEXT"){
+    const content=String(data.text||"");
+    if(content.length>10) throw new Error("ورودی بیش‌ازحد طولانی است.");
+    await chrome.debugger.sendCommand(target,"Input.insertText",{text:content});
+  }else if(kind==="KEY"){
+    const keyName=String(data.key||"");
+    const codeMap={Enter:13,Backspace:8,Tab:9,ArrowUp:38,ArrowDown:40,ArrowLeft:37,ArrowRight:39,Delete:46,Escape:27};
+    if(!Object.prototype.hasOwnProperty.call(codeMap,keyName))throw new Error("کلید پشتیبانی نمی‌شود.");
+    for(const type of ["keyDown","keyUp"]){
+      await chrome.debugger.sendCommand(target,"Input.dispatchKeyEvent",{
+        type,key:keyName,code:keyName,windowsVirtualKeyCode:codeMap[keyName],nativeVirtualKeyCode:codeMap[keyName]
+      });
+    }
+  }
+  return {ok:true};
+}
+async function studioFocus(sender,key){
+  const entry=await studioEntry(sender,key);
+  await chrome.tabs.update(entry.tabId,{active:true});
+  return {ok:true};
+}
+async function studioStop(sender,key) {
+  const owner=studioSenderId(sender),cleanKey=cleanPreviewKey(key);
+  return studioExclusive(async()=>{
+    const tabs=await getStudioTabs();
+    const own=tabs[String(owner)]||{};
+    const entry=own[cleanKey];
+    delete own[cleanKey];
+    if(!Object.keys(own).length)delete tabs[String(owner)];
+    else tabs[String(owner)]=own;
+    await setStudioTabs(tabs);
+    if(entry) {
+      try { await chrome.debugger.detach({tabId:entry.tabId}); } catch(_){}
+      try { await chrome.tabs.remove(entry.tabId); } catch(_){}
+    }
+    return {ok:true};
+  });
+}
+async function studioRemoveTab(tabId) {
+  await studioExclusive(async()=>{
+    const tabs=await getStudioTabs();
+    const childIds=[];
+    let changed=false;
+    if(tabs[String(tabId)]) {
+      for(const entry of Object.values(tabs[String(tabId)]))childIds.push(entry.tabId);
+      delete tabs[String(tabId)];
+      changed=true;
+    }
+    for(const [owner,entries] of Object.entries(tabs)){
+      for(const [key,entry] of Object.entries(entries)){
+        if(entry.tabId===tabId){delete entries[key];changed=true;}
+      }
+      if(!Object.keys(entries).length){delete tabs[owner];changed=true;}
+    }
+    if(changed)await setStudioTabs(tabs);
+    if(childIds.length) {
+      try {await chrome.tabs.remove(childIds);} catch(_){}
+    }
+  });
+}
+
 chrome.runtime.onMessage.addListener((message,sender,sendResponse)=>{
   (async()=>{
     switch(message && message.type){
+      case "PREVIEW_START":return await studioStart(sender,message.key,message.url,message.device);
+      case "PREVIEW_SHOT":return await studioShot(sender,message.key);
+      case "PREVIEW_CLICK":return await studioInput(sender,message.key,"CLICK",message);
+      case "PREVIEW_SCROLL":return await studioInput(sender,message.key,"SCROLL",message);
+      case "PREVIEW_TEXT":return await studioInput(sender,message.key,"TEXT",message);
+      case "PREVIEW_KEY":return await studioInput(sender,message.key,"KEY",message);
+      case "PREVIEW_FOCUS":return await studioFocus(sender,message.key);
+      case "PREVIEW_STOP":return await studioStop(sender,message.key);
       case "OPEN_DEVICE":return await openDevice(message.url,message.device);
       case "APPLY_DEVICE":return await applyDevice(Number(message.tabId),message.device);
       case "CLEAR_DEVICE":return await clearDevice(Number(message.tabId));
@@ -165,3 +336,5 @@ chrome.debugger.onDetach.addListener((source)=>{
 chrome.tabs.onRemoved.addListener((tabId)=>{
   forgetDevice(tabId).catch(()=>{});
 });
+
+chrome.tabs.onRemoved.addListener((tabId)=>{studioRemoveTab(tabId).catch(()=>{});});
